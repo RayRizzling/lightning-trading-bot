@@ -1,0 +1,28 @@
+[package]
+name = "trading-backend"
+version = "0.1.0"
+edition = "2021"
+authors = ["RayRizzling <kontakt@0x41-labs.com>"]
+
+[package.metadata]
+user-agent = "0x41 Labs Rust Trading Bot"
+
+[[test]]
+name = "tests"
+path = "tests/price_indicators.rs"
+
+[dependencies]
+dotenv = "0.15.0"
+tokio = { version = "1.42.0", features = ["full"] }
+tokio-tungstenite = { version = "0.24.0", features = ["rustls-tls-native-roots"] }
+rustls = "0.23.20"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+hmac = "0.12.1"
+sha2 = "0.10.8"
+base64 = "0.22.1"
+chrono = "0.4.39"
+futures-util = "0.3"
+uuid = { version = "1.11.0", features = ["v4"] }
+reqwest = { version = "0.12.9", features = ["json"] }
+colored = "2.0"

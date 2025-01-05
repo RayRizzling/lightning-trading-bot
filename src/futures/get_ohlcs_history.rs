@@ -79,7 +79,7 @@ pub async fn get_ohlcs_history(
             from: current_from,
             to: current_to,
             limit: Some(limit),
-            debug: true
+            debug: params.debug
         };
         
         let query_option = encode_query_params(&params);

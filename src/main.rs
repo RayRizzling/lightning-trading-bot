@@ -36,6 +36,7 @@ async fn main() {
     let signal_tx_clone1 = Arc::clone(&signal_tx);
     let (signal_result_tx, mut signal_result_rx) = mpsc::channel::<Signal>(15);
 
+    // init bot params
     match init_bot_params(
         &config.api_url,
         &config.range,
@@ -77,6 +78,7 @@ async fn main() {
         }
     }
 
+    // update bot params continuously
     if let Some(ref indicators) = &bot_params.lock().await.indicators {
         let bot_params_clone: Arc<Mutex<BotParams>> = Arc::clone(&bot_params);
 
@@ -137,7 +139,7 @@ async fn main() {
         }
     });
 
-    // // Continuously process spot price data feed
+    // // Continuously process spot price data feed and send to signal channel
     tokio::spawn({
         async move {
             while let Some(price_data) = price_rx.recv().await {

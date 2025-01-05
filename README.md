@@ -78,6 +78,8 @@ The bot's behavior can be customized by modifying the `config.rs` file. You can 
 - 📊 **Technical Indicators**: Set the periods for MA, EMA, BB, RSI, and ATR.
 - ⚙️ **Other Settings**: Configure other important parameters.
 
+Important notice: OHLCs history data and live spot price is used for signal derivation. Price and index history not yet integrated in signal calulcations.
+
 ### Example Configuration
 
 ```rust

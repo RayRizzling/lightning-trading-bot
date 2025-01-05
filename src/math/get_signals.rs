@@ -214,7 +214,9 @@ pub async fn calculate_ohlc_with_price_signal(price_data: &PriceData, indicators
         }
     }
     
-    println!("Signal after ATR (final): {}", signal);
+    //println!("Signal after ATR: {}", signal);
+
+    println!("{}", format!(" - Singal Value: {}", signal).dimmed());
 
     // Final Signal Determination
     if signal >= 1.55 {  // Strong Buy Condition

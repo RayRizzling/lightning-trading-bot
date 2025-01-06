@@ -53,7 +53,7 @@ pub struct CloseTradeResponse {
 ///
 /// # Returns
 /// - A `Result` that contains the `CloseAllTradesResponse` if successful, or an error if the request fails.
-pub async fn close_all_trades(
+pub async fn _close_all_trades(
     api_url: &str
 ) -> Result<CloseAllTradesResponse, Box<dyn Error>> {
     // Construct the URL for closing all trades.

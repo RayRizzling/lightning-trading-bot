@@ -1,6 +1,7 @@
 // src/main.rs
 
 use config::load_config;
+use math::create_trade_from_signal::{create_trade_from_signal, CreateTradeResult};
 use math::update_data::update_data;
 use tokio::signal;
 use tokio::sync::{Mutex, mpsc};
@@ -13,28 +14,29 @@ use crate::futures::get_ohlcs_history::OhlcHistoryEntry;
 use math::get_indicators::update_price_indicators;
 use math::init_bot_params::{init_bot_params, BotParams};
 use utils::update_bot_indicators::update_indicators;
-use math::get_signals::{get_signals, Signal, SignalData};
+use math::get_signals::{get_signals, SignalData, SignalResponse};
 use std::io::{self, Write};
+use tokio::time::Duration;
 
 mod config;
 mod utils;
 mod futures;
 mod math;
 
-//use futures::create_trade::create_market_buy_order;
 //use futures::close_trade::close_trade;
 //use futures::close_all_trades::close_all_trades;
 
 #[tokio::main]
 async fn main() {
     let config = load_config().await;
+    let api_url = config.api_url.clone();
     let bot_params: Arc<Mutex<BotParams>>;
 
     // init signals channels
     let (signal_tx, signal_rx) = mpsc::channel::<SignalData>(15);
     let signal_tx = Arc::new(Mutex::new(signal_tx));
     let signal_tx_clone1 = Arc::clone(&signal_tx);
-    let (signal_result_tx, mut signal_result_rx) = mpsc::channel::<Signal>(15);
+    let (signal_result_tx, mut signal_result_rx) = mpsc::channel::<SignalResponse>(15);
 
     // init bot params
     match init_bot_params(
@@ -167,13 +169,68 @@ async fn main() {
         });
     
         // process signal
-        while let Some(signal) = signal_result_rx.recv().await {
-            println!(" - {}", signal.to_string());
-            io::stdout().flush().unwrap();
-        }
+        tokio::spawn(async move {
+            let mut last_trade_time = tokio::time::Instant::now();
+        
+            while let Some(signal_response) = signal_result_rx.recv().await {
+                let signal = signal_response.signal;
+                let indicators = signal_response.indicators;
+                
+                // Log the signal
+                println!(" - {}", signal.to_string());
+                io::stdout().flush().unwrap();
+        
+                // Check if enough time has passed for a new trade
+                if last_trade_time.elapsed() >= Duration::new(config.trade_gap_seconds, 0) {
+                    // Update the last trade time
+                    last_trade_time = tokio::time::Instant::now();
+        
+                    let bot_params = Arc::clone(&bot_params);
+        
+                    // Process the trade
+                    match create_trade_from_signal(
+                        signal,
+                        &api_url,
+                        bot_params,
+                        indicators,
+                        None,
+                        config.risk_per_trade_percent,
+                        config.risk_to_reward_ratio,
+                        config.risk_to_loss_ratio,
+                    )
+                    .await
+                    {
+                        Ok(CreateTradeResult::TradeCreated) => {
+                            println!(
+                                "{}",
+                                format!(
+                                    "Trade successfully created for signal: {}",
+                                    signal.to_string()
+                                )
+                                .green()
+                            );
+                        }
+                        Ok(CreateTradeResult::NoTradeCreated(reason)) => {
+                            println!("{}", format!("No trade created: {}", reason).yellow());
+                        }
+                        Err(e) => {
+                            eprintln!("{}", format!("Error creating trade: {}", e).red());
+                        }
+                    }
+                } else {
+                    println!(
+                        "{}",
+                        format!(
+                            "...skipped."
+                        )
+                        .cyan()
+                    );
+                }
+            }
+        });  
     });
     
-    
+    // TO DO: revalidate running trades on interval
 
     signal::ctrl_c().await.expect("failed to listen for event");
     println!("{}", "");
@@ -185,24 +242,6 @@ async fn main() {
     handle.await.expect("Error shutting down the trading bot.");
     println!("Bot stopped successfully.")
 }
-
-
-    //     // let leverage = 20;          // Leverage (i.e. 1 = 1x)
-    //     // let quantity = Some(1);      // amoount in USD (100 = 1 USD)
-    //     // //let margin = Some(1029); // (1100 Sats)
-        
-    //     // match create_market_buy_order(
-    //     //     &api_url, 
-    //     //     leverage, 
-    //     //     quantity, 
-    //     //     None,
-    //     //     None,
-    //     //     None,
-    //     //     None
-    //     // ).await {
-    //     //     Ok(trade) => println!("Market buy order created: {:?}", trade),
-    //     //     Err(e) => eprintln!("Error: {}", e),
-    //     // }
 
     //     // match close_all_trades(&api_url).await {
     //     //     Ok(response) => {

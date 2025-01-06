@@ -52,7 +52,7 @@ pub struct CloseTradeParams<'a> {
 /// 
 /// # Returns
 /// - A `Result` that contains the `CloseTradeResponse` if successful, or an error if the request fails.
-pub async fn close_trade(
+pub async fn _close_trade(
     api_url: &str,
     trade_id: &str,   // The ID of the trade to closse
 ) -> Result<CloseTradeResponse, Box<dyn Error>> {

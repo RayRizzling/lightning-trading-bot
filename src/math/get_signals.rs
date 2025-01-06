@@ -35,7 +35,13 @@ impl Signal {
     }
 }
 
-pub async fn get_signals(mut rx: mpsc::Receiver<SignalData>, tx: mpsc::Sender<Signal>) {
+#[derive(Clone)]
+pub struct SignalResponse {
+    pub signal: Signal,
+    pub indicators: Option<Indicators>,
+}
+
+pub async fn get_signals(mut rx: mpsc::Receiver<SignalData>, tx: mpsc::Sender<SignalResponse>) {
     let mut last_signal: Option<SignalData> = None;
 
     while let Some(signal_data) = rx.recv().await {
@@ -66,7 +72,12 @@ pub async fn get_signals(mut rx: mpsc::Receiver<SignalData>, tx: mpsc::Sender<Si
                 _  => Signal::Undefined,
             };
 
-            if tx.send(signal).await.is_err() {
+            let signal_response = SignalResponse {
+                signal,
+                indicators: Some(indicators),
+            };
+
+            if tx.send(signal_response).await.is_err() {
                 eprintln!("Error sending signal");
             }
         }

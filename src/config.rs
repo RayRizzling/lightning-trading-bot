@@ -19,13 +19,17 @@ pub struct BotConfig {
     pub ma_period: usize,                // Period for the moving average (MA) calculation
     pub ema_period: usize,               // Period for the exponential moving average (EMA) calculation
     pub bb_period: usize,                // Period for the Bollinger Bands calculation
-    pub bb_std_dev_multiplier: f64,     // Multiplier for standard deviation in Bollinger Bands
+    pub bb_std_dev_multiplier: f64,      // Multiplier for standard deviation in Bollinger Bands
     pub rsi_period: usize,               // Period for the relative strength index (RSI) calculation
     pub atr_period: usize,               // Period for the average true range (ATR) calculation
     pub trade_type: String,              // Defines the trade type: "running", "open", or "closed"
     pub include_price_data: bool,        // Whether to include price data (might slow down the bot)
     pub include_index_data: bool,        // Whether to include index data (might slow down the bot)
     pub interval: Duration,              // The interval for data fetching (calculated based on range)
+    pub risk_per_trade_percent: f64,     // Risk handling for trade quantity
+    pub risk_to_reward_ratio: f64,       // Risk handling for takeprofit
+    pub risk_to_loss_ratio: f64,         // Risk handling for stoploss
+    pub trade_gap_seconds: u64           // Min gap bewtween opening two trades in seconds
 }
 
 // Configuration for the signal weights and gap value
@@ -40,6 +44,8 @@ pub struct SignalSettings {
 // Loads the bot's configuration settings
 pub async fn load_config() -> BotConfig {
     dotenv().ok(); // Load environment variables from .env file
+
+    let trade_gap_seconds = 5; // min gap bewtween opening two trades
 
     // Fetch the API URL from the environment variables
     let api_url = env::var("LN_MAINNET_API_URL").expect("LN_MAINNET_API_URL not set");
@@ -71,6 +77,11 @@ pub async fn load_config() -> BotConfig {
     let formatted_from = format_timestamp(from.unwrap_or_else(|| get_time_n_days_ago_ms(14)));
     let formatted_to = format_timestamp(to.unwrap_or_else(get_current_time_ms));
 
+    // Trade risk
+    let risk_per_trade_percent = 0.01; // 1%
+    let risk_to_reward_ratio = 1.25;
+    let risk_to_loss_ratio = 0.9;
+
     // Return the full BotConfig struct with all settings
     BotConfig {
         api_url,
@@ -89,6 +100,10 @@ pub async fn load_config() -> BotConfig {
         include_price_data,
         include_index_data,
         interval,
+        risk_per_trade_percent,
+        risk_to_reward_ratio,
+        risk_to_loss_ratio,
+        trade_gap_seconds
     }
 }
 

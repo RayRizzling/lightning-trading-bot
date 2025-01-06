@@ -71,7 +71,7 @@ pub async fn create_trade(
     params: CreateTradeParams
 ) -> Result<TradeResponse, Box<dyn Error>> {
     let params_json = serde_json::to_string(&params)?;
-    println!("Request Body: {}", params_json);
+    //println!("Request Body: {}", params_json);
 
     let mut headers: HeaderMap = get_headers("/v2/futures", "POST", Some(&params_json))?;
     headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
@@ -111,7 +111,7 @@ pub async fn create_trade(
 /// 
 /// # Returns
 /// - `Result<TradeResponse, Box<dyn Error>>`: The response from the API call, or an error if the trade could not be created.
-pub async fn create_limit_buy_order(
+pub async fn _create_limit_buy_order(
     api_url: &str,
     leverage: u64,
     price: u64,
@@ -146,7 +146,7 @@ pub async fn create_limit_buy_order(
 /// 
 /// # Returns
 /// - `Result<TradeResponse, Box<dyn Error>>`: The response from the API call, or an error if the trade could not be created.
-pub async fn create_limit_sell_order(
+pub async fn _create_limit_sell_order(
     api_url: &str,
     leverage: u64,
     price: u64,
@@ -186,7 +186,6 @@ pub async fn create_market_buy_order(
     leverage: u64,
     quantity: Option<u64>,
     margin: Option<u64>,
-    price: Option<u64>,
     takeprofit: Option<u64>,
     stoploss: Option<u64>
 ) -> Result<TradeResponse, Box<dyn Error>> {
@@ -195,7 +194,7 @@ pub async fn create_market_buy_order(
         r#type: "m".to_string(),  // "m" indicates a market order.
         margin,
         leverage,
-        price, // No price for market orders.
+        price: None, // No price for market orders.
         quantity,
         takeprofit,
         stoploss,

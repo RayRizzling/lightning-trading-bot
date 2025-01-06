@@ -7,3 +7,4 @@ pub mod get_headers;
 pub mod get_timestamps;
 pub mod log_bot_params;
 pub mod update_bot_indicators;
+pub mod calculate_trade;

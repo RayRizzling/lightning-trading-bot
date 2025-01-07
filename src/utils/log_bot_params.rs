@@ -223,10 +223,21 @@ pub fn log_bot_params(bot_params: &BotParams, trade_type: &str, formatted_from: 
                 println!("{}", format!("Creation: {}", formatted_creation_ts).blue());
                 println!("{}", format!("Last Update: {}", formatted_last_update_ts).blue());
                 println!("{}", format!("Closed: {}", formatted_closed_ts).blue());
-                println!("{}", format!("Open: {}", trade.open).blue());
-                println!("{}", format!("Running: {}", trade.running).blue());
-                println!("{}", format!("Canceled: {}", trade.canceled).blue());
-                println!("{}", format!("Closed: {}", trade.closed).blue());
+                if trade.open {
+                    println!("{}", format!("Open").blue());
+                }
+                
+                if trade.running {
+                    println!("{}", format!("Running").green());
+                }
+                
+                if trade.canceled {
+                    println!("{}", format!("Canceled").red());
+                }
+                
+                if trade.closed {
+                    println!("{}", format!("Closed").red());
+                }
             }
         }
     } else {
@@ -262,95 +273,79 @@ pub fn log_updated_indicators(bot_params: &BotParams) {
         println!("{}", "");
         println!("{}", "Updated Indicators:".blue());
 
-        // let ohlc_data = &indicators.ohlc_data;
-        // if let Some(first_entry) = ohlc_data.first() {
-        //     let first_time = first_entry.time;
-        //     println!("{}", format!("First OHLC Time: {}", format_timestamp(first_time)).yellow());
-        // }
-        // if let Some(last_entry) = ohlc_data.last() {
-        //     let last_time = last_entry.time;
-        //     println!("{}", format!("Last OHLC Time: {}", format_timestamp(last_time)).yellow());
-        // }
-
         if let Some(ma) = indicators.ma {
             println!("{}", format!("Moving Average (MA): {}", ma).green());
-        } else {
-            println!("{}", "Moving Average (MA): Not Available".yellow());
         }
 
         if let Some(ema) = indicators.ema {
             println!("{}", format!("Exponential Moving Average (EMA): {}", ema).green());
-        } else {
-            println!("{}", "Exponential Moving Average (EMA): Not Available".yellow());
         }
 
         if let Some((upper, middle, lower)) = indicators.bollinger_bands {
-            println!("{}", format!("Bollinger Bands - Upper: {}, Middle: {}, Lower: {}", upper, middle, lower).green());
-        } else {
-            println!("{}", "Bollinger Bands: Not Available".yellow());
+            println!(
+                "{}",
+                format!("Bollinger Bands - Upper: {}, Middle: {}, Lower: {}", upper, middle, lower).green()
+            );
         }
 
         if let Some(rsi) = indicators.rsi {
             println!("{}", format!("Relative Strength Index (RSI): {}", rsi).green());
-        } else {
-            println!("{}", "Relative Strength Index (RSI): Not Available".yellow());
         }
 
         if let Some(i_ma) = indicators.i_ma {
             println!("{}", format!("Indicator MA: {}", i_ma).green());
-        } else {
-            println!("{}", "Indicator MA: Not Available".yellow());
         }
 
         if let Some(i_ema) = indicators.i_ema {
             println!("{}", format!("Indicator EMA: {}", i_ema).green());
-        } else {
-            println!("{}", "Indicator EMA: Not Available".yellow());
         }
 
         if let Some((i_upper, i_middle, i_lower)) = indicators.i_bollinger_bands {
-            println!("{}", format!("Indicator Bollinger Bands - Upper: {}, Middle: {}, Lower: {}", i_upper, i_middle, i_lower).green());
-        } else {
-            println!("{}", "Indicator Bollinger Bands: Not Available".yellow());
+            println!(
+                "{}",
+                format!(
+                    "Indicator Bollinger Bands - Upper: {}, Middle: {}, Lower: {}",
+                    i_upper, i_middle, i_lower
+                )
+                .green()
+            );
         }
 
         if let Some(i_rsi) = indicators.i_rsi {
             println!("{}", format!("Indicator RSI: {}", i_rsi).green());
-        } else {
-            println!("{}", "Indicator RSI: Not Available".yellow());
         }
 
         if let Some(atr) = indicators.atr {
             println!("{}", format!("Average True Range (ATR): {}", atr).green());
-        } else {
-            println!("{}", "Average True Range (ATR): Not Available".yellow());
         }
 
         if let Some(ohlc_ma) = indicators.ohlc_ma {
             println!("{}", format!("OHLC MA: {}", ohlc_ma).green());
-        } else {
-            println!("{}", "OHLC MA: Not Available".yellow());
         }
 
         if let Some(ohlc_ema) = indicators.ohlc_ema {
             println!("{}", format!("OHLC EMA: {}", ohlc_ema).green());
-        } else {
-            println!("{}", "OHLC EMA: Not Available".yellow());
         }
 
         if let Some((ohlc_upper, ohlc_middle, ohlc_lower)) = indicators.ohlc_bollinger_bands {
-            println!("{}", format!("OHLC Bollinger Bands - Upper: {}, Middle: {}, Lower: {}", ohlc_upper, ohlc_middle, ohlc_lower).green());
-        } else {
-            println!("{}", "OHLC Bollinger Bands: Not Available".yellow());
+            println!(
+                "{}",
+                format!(
+                    "OHLC Bollinger Bands - Upper: {}, Middle: {}, Lower: {}",
+                    ohlc_upper, ohlc_middle, ohlc_lower
+                )
+                .green()
+            );
         }
 
         if let Some(ohlc_rsi) = indicators.ohlc_rsi {
             println!("{}", format!("OHLC RSI: {}", ohlc_rsi).green());
-        } else {
-            println!("{}", "OHLC RSI: Not Available".yellow());
         }
+        println!("{}", "");
     } else {
-        println!("{}", "No Indicators available.".yellow());
+        println!("{}", "");
+        println!("{}", "No updated Indicators available.".red());
+        println!("{}", "");
     }
 }
 

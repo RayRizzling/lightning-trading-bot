@@ -87,20 +87,28 @@ Important: OHLC history data and live spot prices are used for signal derivation
 
 ```rust
 pub struct BotConfig {
-    pub api_url: String,
-    pub range: String,
-    pub from: Option<i64>,
-    pub to: Option<i64>,
-    pub ma_period: usize,
-    pub ema_period: usize,
-    pub bb_period: usize,
-    pub bb_std_dev_multiplier: f64,
-    pub rsi_period: usize,
-    pub atr_period: usize,
-    pub trade_gap_seconds: u64,
-    pub include_price_data: bool,
-    pub include_index_data: bool,
-    pub interval: Duration,
+    pub api_url: String,                 // URL for the API endpoint (loaded from environment variables)
+    pub range: String,                   // Time range for data (e.g., 1 minute, 1 hour)
+    pub from: Option<i64>,               // Starting timestamp for data fetching (optional)
+    pub to: Option<i64>,                 // Ending timestamp for data fetching (optional)
+    pub formatted_from: String,          // Formatted 'from' timestamp for API calls
+    pub formatted_to: String,            // Formatted 'to' timestamp for API calls
+    pub ma_period: usize,                // Period for the moving average (MA) calculation
+    pub ema_period: usize,               // Period for the exponential moving average (EMA) calculation
+    pub bb_period: usize,                // Period for the Bollinger Bands calculation
+    pub bb_std_dev_multiplier: f64,      // Multiplier for standard deviation in Bollinger Bands
+    pub rsi_period: usize,               // Period for the relative strength index (RSI) calculation
+    pub atr_period: usize,               // Period for the average true range (ATR) calculation
+    pub trade_type: String,              // Defines the trade type: "running", "open", or "closed"
+    //price and index data not integrated in trade execution and signal derivation in v0.1.0
+    pub include_price_data: bool,        // Whether to include price data (might slow down the bot)
+    pub include_index_data: bool,        // Whether to include index data (might slow down the bot)
+    //
+    pub interval: Duration,              // The interval for data fetching (calculated based on range)
+    pub risk_per_trade_percent: f64,     // Risk handling for trade quantity
+    pub risk_to_reward_ratio: f64,       // Risk handling for takeprofit
+    pub risk_to_loss_ratio: f64,         // Risk handling for stoploss
+    pub trade_gap_seconds: u64           // Min gap bewtween opening two trades in seconds
 }
 ```
 Modify these values in the `BotConfig` struct to adjust the bot’s trading parameters.
@@ -117,7 +125,7 @@ This bot is currently under active development. The core trading logic, includin
 
 1. Fork the repository.
 2. Create a new branch (`git checkout -b feature/your-feature`).
-3. Make your changes and commit them (`git commit -am 'Add new feature'`).
+3. Make your changes and commit them (`git commit -m 'Add new feature'`).
 4. Push to the branch (`git push origin feature/your-feature`).
 5. Open a pull request.
 

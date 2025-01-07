@@ -79,8 +79,8 @@ pub async fn load_config() -> BotConfig {
 
     // Trade risk
     let risk_per_trade_percent = 0.01; // 1%
-    let risk_to_reward_ratio = 1.25;
-    let risk_to_loss_ratio = 0.9;
+    let risk_to_reward_ratio = 0.8;
+    let risk_to_loss_ratio = 0.75;
 
     // Return the full BotConfig struct with all settings
     BotConfig {

@@ -1,17 +1,17 @@
 // src/config.rs
 
 use dotenv::dotenv;
-use std::{env, time::Duration};
+use std::{env, sync::Arc, time::Duration};
 use colored::Colorize;
 
 use crate::utils::{get_timestamps::{
-    format_timestamp, get_current_time_ms, get_time_n_days_ago_ms, get_time_n_minutes_ago_ms
+    format_timestamp, get_current_time_ms, get_time_n_days_ago_ms
 }, log_bot_params::get_interval_from_range};
 
 // Configuration for the bot's settings and signal parameters
 pub struct BotConfig {
-    pub api_url: String,                 // URL for the API endpoint (loaded from environment variables)
-    pub range: String,                   // Time range for data (e.g., 1 minute, 1 hour)
+    pub api_url: Arc<String>,                 // URL for the API endpoint (loaded from environment variables)
+    pub range: String,                   // Time range for (OHLCs) data interval (e.g., 1 minute, 1 hour)
     pub from: Option<i64>,               // Starting timestamp for data fetching (optional)
     pub to: Option<i64>,                 // Ending timestamp for data fetching (optional)
     pub formatted_from: String,          // Formatted 'from' timestamp for API calls
@@ -43,28 +43,30 @@ pub struct SignalSettings {
 
 // Loads the bot's configuration settings
 pub async fn load_config() -> BotConfig {
-    dotenv().ok(); // Load environment variables from .env file
+    dotenv().ok();
 
     let trade_gap_seconds = 5; // min gap bewtween opening two trades
 
     // Fetch the API URL from the environment variables
-    let api_url = env::var("LN_MAINNET_API_URL").expect("LN_MAINNET_API_URL not set");
+    let api_url = Arc::new(
+        env::var("LN_MAINNET_API_URL").expect("LN_MAINNET_API_URL not set"),
+    );
 
-    // Default time range for the data (1 minute in this case)
-    let range = "1".to_string(); // Possible values: 1, 5, 10, 15, 30, 60, 120, 180, 240, 1D, 1W, 1M, 3M. Example "1" for each minute
-    let from = Some(get_time_n_minutes_ago_ms(60)); // Default to 1 hour ago for 'from' timestamp
+    // Time range configuration
+    let range = "30".to_string(); // Possible values: 1, 5, 10, 15, 30, 60, 120, 180, 240, 1D, 1W, 1M, 3M. Example "1" for each minute
+    let from = Some(get_time_n_days_ago_ms(5)); // Default to 1 hour ago for 'from' timestamp
     let to = None; // Default to current time for 'to' timestamp
 
-    // Determine the interval based on the selected range
+    // Interval for fetching data based on range
     let interval = get_interval_from_range(&range).await;
 
-    // Define the period for each indicator
-    let ma_period = 14;                // Period for moving average (MA)
-    let ema_period = 12;               // Period for exponential moving average (EMA)
-    let bb_period = 12;                // Period for Bollinger Bands
-    let bb_std_dev_multiplier = 2.0;   // Standard deviation multiplier for Bollinger Bands
-    let rsi_period = 9;                // Period for relative strength index (RSI)
-    let atr_period = 7;                // Period for average true range (ATR)
+    // Indicator periods
+    let ma_period = 14;
+    let ema_period = 12;
+    let bb_period = 12;
+    let bb_std_dev_multiplier = 2.0;
+    let rsi_period = 9;
+    let atr_period = 7;
 
     // Define the trade type (can be "running", "open", or "closed")
     let trade_type = "running".to_string();
@@ -79,8 +81,8 @@ pub async fn load_config() -> BotConfig {
 
     // Trade risk
     let risk_per_trade_percent = 0.01; // 1%
-    let risk_to_reward_ratio = 0.8;
-    let risk_to_loss_ratio = 0.75;
+    let risk_to_reward_ratio = 0.25;
+    let risk_to_loss_ratio = 0.25;
 
     // Return the full BotConfig struct with all settings
     BotConfig {

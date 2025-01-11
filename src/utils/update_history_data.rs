@@ -9,7 +9,7 @@ use tokio::time::{self, Duration};
 use crate::futures::get_ohlcs_history::{get_ohlcs_history, GetOhlcsParams, OhlcHistoryEntry};
 use crate::utils::get_timestamps::get_current_time_ms;
 
-pub async fn update_data(
+pub async fn update_history_data(
     api_url: &str,
     interval: Duration,
     ohlc_data: Arc<Mutex<Vec<OhlcHistoryEntry>>>,

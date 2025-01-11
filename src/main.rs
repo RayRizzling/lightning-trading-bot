@@ -1,30 +1,25 @@
 // src/main.rs
 
 use config::load_config;
-use math::create_trade_from_signal::{create_trade_from_signal, CreateTradeResult};
-use math::update_data::update_data;
+use utils::update_history_data::update_history_data;
 use tokio::signal;
 use tokio::sync::{Mutex, mpsc};
 use utils::log_bot_params::{log_bot_params, log_spot_price, log_updated_indicators};
+use utils::process_signals::process_signals;
 use std::env;
 use std::sync::Arc;
 use colored::Colorize;
 use utils::connect_ws::ws_price_feed;
 use crate::futures::get_ohlcs_history::OhlcHistoryEntry;
 use math::get_indicators::update_price_indicators;
-use math::init_bot_params::{init_bot_params, BotParams};
-use utils::update_bot_indicators::update_indicators;
+use utils::init_bot_params::{init_bot_params, BotParams};
+use utils::set_updated_indicators::set_updated_indicators;
 use math::get_signals::{get_signals, SignalData, SignalResponse};
-use std::io::{self, Write};
-use tokio::time::Duration;
 
 mod config;
 mod utils;
 mod futures;
 mod math;
-
-//use futures::close_trade::close_trade;
-//use futures::close_all_trades::close_all_trades;
 
 #[tokio::main]
 async fn main() {
@@ -36,7 +31,7 @@ async fn main() {
     let (signal_tx, signal_rx) = mpsc::channel::<SignalData>(15);
     let signal_tx = Arc::new(Mutex::new(signal_tx));
     let signal_tx_clone1 = Arc::clone(&signal_tx);
-    let (signal_result_tx, mut signal_result_rx) = mpsc::channel::<SignalResponse>(15);
+    let (signal_result_tx, signal_result_rx) = mpsc::channel::<SignalResponse>(15);
 
     // init bot params
     match init_bot_params(
@@ -80,7 +75,7 @@ async fn main() {
         }
     }
 
-    // update bot params continuously
+    // update bot params (history data and derived indicators) continuously
     if let Some(ref indicators) = &bot_params.lock().await.indicators {
         let bot_params_clone: Arc<Mutex<BotParams>> = Arc::clone(&bot_params);
 
@@ -88,13 +83,14 @@ async fn main() {
         let ohlc_data_clone = Arc::clone(&ohlc_data);
         let (tx, mut rx) = mpsc::channel::<Vec<OhlcHistoryEntry>>(5);
     
+        // task to update ohlc data on interval (index and price history data not integrated in v0.1.0)
         tokio::spawn(async move {
-            if let Err(e) = update_data(&config.api_url, config.interval, ohlc_data_clone, &config.range, tx).await {
+            if let Err(e) = update_history_data(&config.api_url, config.interval, ohlc_data_clone, &config.range, tx).await {
                 eprintln!("Error in update_data task: {}", e);
             }
         });
 
-        // Spawn task to process updated OHLC data for fresh indicators by interval
+        // task to process updated OHLC data for fresh indicators by interval
         tokio::spawn(async move {
             while let Some(ohlc_data) = rx.recv().await {
                 let (ma, ema, bollinger_bands, rsi, atr, price_ma, price_ema, price_bollinger_bands, price_rsi, index_ma, index_ema, index_bollinger_bands, index_rsi) =
@@ -111,7 +107,7 @@ async fn main() {
                     );
 
                 let mut bot_params = bot_params_clone.lock().await;
-                update_indicators(&mut bot_params, ohlc_data, ma, ema, bollinger_bands, rsi, atr, price_ma, price_ema, price_bollinger_bands, price_rsi, index_ma, index_ema, index_bollinger_bands, index_rsi);
+                set_updated_indicators(&mut bot_params, ohlc_data, ma, ema, bollinger_bands, rsi, atr, price_ma, price_ema, price_bollinger_bands, price_rsi, index_ma, index_ema, index_bollinger_bands, index_rsi);
                 
                 log_updated_indicators(&bot_params);
 
@@ -132,6 +128,7 @@ async fn main() {
     let (price_tx, mut price_rx) = mpsc::channel(10);
     // channel for shutdown signal
     let (shutdown_tx, shutdown_rx) = mpsc::channel(1);
+
     // Start the WebSocket task
     let handle = tokio::spawn(async move {
         let ws_endpoint = env::var("LN_MAINNET_API_WS_ENDPOINT").expect("WebSocket Endpoint Not Found");
@@ -141,7 +138,7 @@ async fn main() {
         }
     });
 
-    // // Continuously process spot price data feed and send to signal channel
+    // Continuously process spot price data feed and send to signal channel
     tokio::spawn({
         async move {
             while let Some(price_data) = price_rx.recv().await {
@@ -162,77 +159,32 @@ async fn main() {
         }
     });
 
+    // get signal
     tokio::spawn(async move {
-        // get signal
-        tokio::spawn(async move {
-            get_signals(signal_rx, signal_result_tx).await;
-        });
-    
-        // process signal
-        tokio::spawn(async move {
-            let mut last_trade_time = tokio::time::Instant::now();
-        
-            while let Some(signal_response) = signal_result_rx.recv().await {
-                let signal = signal_response.signal;
-                let indicators = signal_response.indicators;
-                
-                // Log the signal
-                println!(" - {}", signal.to_string());
-                io::stdout().flush().unwrap();
-        
-                // Check if enough time has passed for a new trade
-                if last_trade_time.elapsed() >= Duration::new(config.trade_gap_seconds, 0) {
-                    // Update the last trade time
-                    last_trade_time = tokio::time::Instant::now();
-        
-                    let bot_params = Arc::clone(&bot_params);
-        
-                    // Process the trade
-                    match create_trade_from_signal(
-                        signal,
-                        &api_url,
-                        bot_params,
-                        indicators,
-                        None,
-                        config.risk_per_trade_percent,
-                        config.risk_to_reward_ratio,
-                        config.risk_to_loss_ratio,
-                    )
-                    .await
-                    {
-                        Ok(CreateTradeResult::TradeCreated) => {
-                            println!(
-                                "{}",
-                                format!(
-                                    "Trade successfully created for signal: {}",
-                                    signal.to_string()
-                                )
-                                .green()
-                            );
-                        }
-                        Ok(CreateTradeResult::NoTradeCreated(reason)) => {
-                            println!("{}", format!("No trade created: {}", reason).yellow());
-                        }
-                        Err(e) => {
-                            eprintln!("{}", format!("Error creating trade: {}", e).red());
-                        }
-                    }
-                } else {
-                    println!(
-                        "{}",
-                        format!(
-                            "...skipped."
-                        )
-                        .cyan()
-                    );
-                }
-            }
-        });  
+        get_signals(signal_rx, signal_result_tx).await;
+    });
+
+    // process signal (log signal & create trade)
+    tokio::spawn({
+        let bot_params = Arc::clone(&bot_params);
+        let api_url = Arc::clone(&api_url).to_string().into();
+        async move {
+            process_signals(
+                signal_result_rx,
+                api_url,
+                bot_params,
+                config.trade_gap_seconds,
+                config.risk_per_trade_percent,
+                config.risk_to_reward_ratio,
+                config.risk_to_loss_ratio,
+            )
+            .await;
+        }
     });
     
     // TO DO: revalidate running trades on interval
 
-    signal::ctrl_c().await.expect("failed to listen for event");
+    signal::ctrl_c().await.expect("failed to listen for shutdown event");
     println!("{}", "");
     println!("Ctrl+C received, bot shutdown...");
 
@@ -242,25 +194,3 @@ async fn main() {
     handle.await.expect("Error shutting down the trading bot.");
     println!("Bot stopped successfully.")
 }
-
-    //     // match close_all_trades(&api_url).await {
-    //     //     Ok(response) => {
-    //     //         println!("Successfully closed trades: {:?}", response.trades);
-    //     //     }
-    //     //     Err(e) => {
-    //     //         eprintln!("Error closing all trades: {}", e);
-    //     //     }
-    //     // }
-
-    //     // let trade_id = "d0e7a81e-7bec-40d7-8e0f-9d57efb67f97"; // ID des zu stornierenden Trades
-
-    //     // match close_trade(&api_url, trade_id).await {
-    //     //     Ok(response) => {
-    //     //         println!("Trade successfully canceled:");
-    //     //         println!("{:#?}", response);
-    //     //     }
-    //     //     Err(e) => {
-    //     //         eprintln!("Error canceling trade: {}", e);
-    //     //     }
-    //     // }
-    // });

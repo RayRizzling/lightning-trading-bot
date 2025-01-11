@@ -3,10 +3,8 @@
 use crate::utils::get_user::{get_user, User};
 use crate::futures::ticker::{get_futures_ticker, FuturesTicker};
 use crate::futures::get_market::{get_market, FuturesMarket};
-use crate::math::get_indicators::get_indicators;
+use crate::math::get_indicators::{get_indicators, Indicators};
 use crate::futures::get_trades::{get_trades, GetTradesParams, TradeEntry};
-
-use super::get_indicators::Indicators;
 
 /// Struct to hold all initialized parameters.
 #[allow(dead_code)]

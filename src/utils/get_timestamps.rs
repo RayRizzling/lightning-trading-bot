@@ -16,7 +16,7 @@ pub fn get_time_n_days_ago_ms(days: i64) -> i64 {
     get_current_time_ms() - (days * 24 * 60 * 60 * 1000)
 }
 
-pub fn get_time_n_minutes_ago_ms(minutes: i64) -> i64 {
+pub fn _get_time_n_minutes_ago_ms(minutes: i64) -> i64 {
     get_current_time_ms() - (minutes * 60 * 1000)
 }
 

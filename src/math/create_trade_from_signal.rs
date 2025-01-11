@@ -5,15 +5,15 @@ use crate::futures::ticker::get_futures_ticker;
 use crate::futures::get_trades::{get_trades, GetTradesParams};
 use crate::math::get_stoploss_takeprofit::calculate_stoploss_takeprofit;
 use crate::math::get_trade_quantity::calculate_trade_quantity;
-use crate::utils::calculate_trade::calculate_trade_params;
+use crate::math::calculate_trade::calculate_trade_params;
 use crate::utils::get_user::get_user;
+use crate::utils::init_bot_params::BotParams;
 use crate::utils::log_bot_params::log_forecast_trade;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use super::get_indicators::Indicators;
 use super::get_signals::Signal;
-use super::init_bot_params::BotParams;
 
 pub enum CreateTradeResult {
     TradeCreated,
@@ -55,7 +55,7 @@ pub async fn create_trade_from_signal(
     };
     if active_trades.len() >= max_trades as usize {
         return Ok(CreateTradeResult::NoTradeCreated(
-            "Trade limit reached".to_string(),
+            "Limit reached".to_string(),
         ));
     }
 
@@ -134,11 +134,7 @@ pub async fn create_trade_from_signal(
     // Execute trade based on the signal
     match signal {
         Signal::Buy | Signal::StrongBuy => {
-            if user_data.balance <= trade_params.margin_sats {
-                return Ok(CreateTradeResult::NoTradeCreated(
-                    "Insufficient balance for creating a trade".to_string(),
-                ));
-            }
+            is_balance_sufficient(user_data.balance, trade_params.margin_sats)?;
             create_market_buy_order(
                 api_url,
                 leverage,
@@ -153,11 +149,7 @@ pub async fn create_trade_from_signal(
             return Ok(CreateTradeResult::TradeCreated);
         }
         Signal::Sell | Signal::StrongSell => {
-            if user_data.balance <= trade_params.margin_sats {
-                return Ok(CreateTradeResult::NoTradeCreated(
-                    "Insufficient balance for creating a trade".to_string(),
-                ));
-            }
+            is_balance_sufficient(user_data.balance, trade_params.margin_sats)?;
             create_market_sell_order(
                 api_url,
                 leverage,
@@ -183,4 +175,11 @@ pub async fn create_trade_from_signal(
             )));
         }
     }
+}
+
+fn is_balance_sufficient(user_balance: f64, required_margin: f64) -> Result<(), String> {
+    if user_balance <= required_margin {
+        return Err("Insufficient balance for creating a trade".to_string());
+    }
+    Ok(())
 }

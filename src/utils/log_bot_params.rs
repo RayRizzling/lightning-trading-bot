@@ -1,11 +1,11 @@
 // src/utils/log_bot_params.rs
 
 use colored::Colorize;
-use crate::{math::init_bot_params::BotParams, utils::get_timestamps::format_timestamp};
+use crate::{futures::get_trades::TradeEntry, math::calculate_trade::TradeParams, utils::{get_timestamps::format_timestamp, init_bot_params::BotParams}};
 use tokio::time::Duration;
 use std::io::{self, Write};
 
-use super::{calculate_trade::TradeParams, connect_ws::PriceData};
+use super::connect_ws::PriceData;
 
 pub fn log_bot_params(bot_params: &BotParams, trade_type: &str, formatted_from: String, formatted_to: String) {
     println!("{}", format!("From: {} - To: {}", formatted_from, formatted_to).dimmed());
@@ -139,104 +139,26 @@ pub fn log_bot_params(bot_params: &BotParams, trade_type: &str, formatted_from: 
             println!("No {} Futures Trades available.", trade_type);
         } else {
             println!("{}", "\n--- Trades ---".green());
-            for trade in trades {
-                println!("{}", "");
-
-                let formatted_creation_ts = format_timestamp(trade.creation_ts as i64);
-                let formatted_last_update_ts = format_timestamp(trade.last_update_ts as i64);
-                let formatted_closed_ts = trade.closed_ts.map(|ts| format_timestamp(ts as i64)).unwrap_or("N/A".to_string());
-                let side_display = match trade.side.as_str() {
-                    "s" => "Short".red().to_string(),
-                    "b" => "Long".green().to_string(),
-                    _ => trade.side.clone(),
-                };
-                let type_display = match trade.type_.as_str() {
-                    "m" => "Market Order".to_string(),
-                    "l" => "Limit Order".to_string(),
-                    _ => trade.type_.clone(),
-                };
-
-                let opening_fee_usd = (trade.opening_fee / 100000000.0) * trade.entry_price.unwrap_or(0.0);
-                let closing_fee_usd = (trade.closing_fee / 100000000.0) * trade.entry_price.unwrap_or(0.0);
-                let margin_usd = (trade.margin / 100000000.0) * trade.entry_price.unwrap_or(0.0);
-                let maintenance_margin_usd = (trade.maintenance_margin / 100000000.0) * trade.entry_price.unwrap_or(0.0);
-                let sum_carry_fees_usd = (trade.sum_carry_fees / 100000000.0) * trade.entry_price.unwrap_or(0.0);
-                let pl_usd = (trade.pl / 100000000.0) * trade.entry_price.unwrap_or(0.0);
-
-                let potential_close_result_sats = trade.pl - (trade.opening_fee + trade.closing_fee);
-                let potential_close_result_usd = pl_usd - (opening_fee_usd + closing_fee_usd);
-                
-                let potential_close_result_display = if potential_close_result_usd > 0.0 {
-                    format!(
-                        "Potential Close Result: +${:.2} (+{} sats)",
-                        potential_close_result_usd,
-                        potential_close_result_sats
-                    )
-                    .green()
-                } else if potential_close_result_usd < 0.0 {
-                    format!(
-                        "Potential Close Result: -${:.2} (-{} sats)",
-                        potential_close_result_usd.abs(),
-                        potential_close_result_sats.abs()
-                    )
-                    .red()
-                } else {
-                    format!(
-                        "Potential Close Result: ${:.2} ({} sats)",
-                        potential_close_result_usd,
-                        potential_close_result_sats
-                    )
-                    .white()
-                };
-
-                println!("{}", format!("Type: {}", type_display).blue());
-                println!("{}", format!("Side: {}", side_display));
-                println!("{}", format!("Quantity: $ {}", trade.quantity).blue());
-                // orange color used (not available in Colorized)
-                println!("{}", format!("\x1b[38;5;214mMargin: {} sats (~${:.2})\x1b[0m", trade.margin, margin_usd));
-                println!("{}", potential_close_result_display);
-                println!("{}", format!("Entry Price: ${:.2}", trade.entry_price.unwrap_or(0.0)).blue());
-                println!(
-                    "{}",
-                    if trade.stoploss == 0.0 {
-                        "Stop Loss: not set".magenta()
-                    } else {
-                        format!("Stop Loss: ${:.2}", trade.stoploss).blue()
-                    }
-                );
-                println!(
-                    "{}",
-                    if trade.takeprofit == 0.0 {
-                        "Take Profit: not set".magenta()
-                    } else {
-                        format!("Take Profit: ${:.2}", trade.takeprofit).blue()
-                    }
-                );
-                println!("{}", format!("Exit Price: ${:.2}", trade.exit_price.unwrap_or(0.0)).blue());
-                println!("{}", format!("Liquidation Price: ${:.2}", trade.liquidation).blue());
-                println!("{}", format!("Opening Fee: {} sats (~${:.2})", trade.opening_fee, opening_fee_usd).blue());
-                println!("{}", format!("Closing Fee: {} sats (~${:.2})", trade.closing_fee, closing_fee_usd).blue());
-                println!("{}", format!("Maintenance Margin: {} sats (~${:.2})", trade.maintenance_margin, maintenance_margin_usd).blue());
-                println!("{}", format!("P&L: {} sats (~${:.2})", trade.pl, pl_usd).blue());
-                println!("{}", format!("Sum Carry Fees: {} sats (~${:.2})", trade.sum_carry_fees, sum_carry_fees_usd).blue());
-                println!("{}", format!("Entry Margin: {:.0} sats", trade.entry_margin.unwrap_or(0.0)).blue());
-                println!("{}", format!("Creation: {}", formatted_creation_ts).blue());
-                println!("{}", format!("Last Update: {}", formatted_last_update_ts).blue());
-                println!("{}", format!("Closed: {}", formatted_closed_ts).blue());
-                if trade.open {
-                    println!("{}", format!("Open").blue());
+        
+            let trade_count = trades.len();
+            if trade_count > 4 {
+                // Display the first two trades
+                for trade in &trades[0..2] {
+                    log_trade_details(trade);
                 }
-                
-                if trade.running {
-                    println!("{}", format!("Running").green());
+    
+                // Display the message about skipped trades
+                let skipped_count = trade_count - 4;
+                println!("{}", format!("\n... [{} more trades not displayed] ...\n", skipped_count).yellow());
+    
+                // Display the last two trades
+                for trade in &trades[trade_count - 2..] {
+                    log_trade_details(trade);
                 }
-                
-                if trade.canceled {
-                    println!("{}", format!("Canceled").red());
-                }
-                
-                if trade.closed {
-                    println!("{}", format!("Closed").red());
+            } else {
+                // Display all trades if there are 4 or fewer
+                for trade in trades {
+                    log_trade_details(trade);
                 }
             }
         }
@@ -422,5 +344,106 @@ pub async fn get_interval_from_range(range: &str) -> Duration {
         "1M" => Duration::from_secs(30 * 24 * 60 * 60), // 1 month
         "3M" => Duration::from_secs(90 * 24 * 60 * 60), // 3 month
         _ => Duration::from_secs(60), // fallback: 1 min
+    }
+}
+
+fn log_trade_details(trade: &TradeEntry) {
+    println!("{}", "");
+
+    let formatted_creation_ts = format_timestamp(trade.creation_ts as i64);
+    let formatted_last_update_ts = format_timestamp(trade.last_update_ts as i64);
+    let formatted_closed_ts = trade.closed_ts.map(|ts| format_timestamp(ts as i64)).unwrap_or("N/A".to_string());
+    let side_display = match trade.side.as_str() {
+        "s" => "Short".red().to_string(),
+        "b" => "Long".green().to_string(),
+        _ => trade.side.clone(),
+    };
+    let type_display = match trade.type_.as_str() {
+        "m" => "Market Order".to_string(),
+        "l" => "Limit Order".to_string(),
+        _ => trade.type_.clone(),
+    };
+
+    let opening_fee_usd = (trade.opening_fee / 100000000.0) * trade.entry_price.unwrap_or(0.0);
+    let closing_fee_usd = (trade.closing_fee / 100000000.0) * trade.entry_price.unwrap_or(0.0);
+    let margin_usd = (trade.margin / 100000000.0) * trade.entry_price.unwrap_or(0.0);
+    let maintenance_margin_usd = (trade.maintenance_margin / 100000000.0) * trade.entry_price.unwrap_or(0.0);
+    let sum_carry_fees_usd = (trade.sum_carry_fees / 100000000.0) * trade.entry_price.unwrap_or(0.0);
+    let pl_usd = (trade.pl / 100000000.0) * trade.entry_price.unwrap_or(0.0);
+
+    let potential_close_result_sats = trade.pl - (trade.opening_fee + trade.closing_fee);
+    let potential_close_result_usd = pl_usd - (opening_fee_usd + closing_fee_usd);
+    
+    let potential_close_result_display = if potential_close_result_usd > 0.0 {
+        format!(
+            "Potential Close Result: +${:.2} (+{} sats)",
+            potential_close_result_usd,
+            potential_close_result_sats
+        )
+        .green()
+    } else if potential_close_result_usd < 0.0 {
+        format!(
+            "Potential Close Result: -${:.2} (-{} sats)",
+            potential_close_result_usd.abs(),
+            potential_close_result_sats.abs()
+        )
+        .red()
+    } else {
+        format!(
+            "Potential Close Result: ${:.2} ({} sats)",
+            potential_close_result_usd,
+            potential_close_result_sats
+        )
+        .white()
+    };
+
+    println!("{}", format!("Type: {}", type_display).blue());
+    println!("{}", format!("Side: {}", side_display));
+    println!("{}", format!("Quantity: $ {}", trade.quantity).blue());
+    // orange color used (not available in Colorized)
+    println!("{}", format!("\x1b[38;5;214mMargin: {} sats (~${:.2})\x1b[0m", trade.margin, margin_usd));
+    println!("{}", potential_close_result_display);
+    println!("{}", format!("Entry Price: ${:.2}", trade.entry_price.unwrap_or(0.0)).blue());
+    println!(
+        "{}",
+        if trade.stoploss == 0.0 {
+            "Stop Loss: not set".magenta()
+        } else {
+            format!("Stop Loss: ${:.2}", trade.stoploss).blue()
+        }
+    );
+    println!(
+        "{}",
+        if trade.takeprofit == 0.0 {
+            "Take Profit: not set".magenta()
+        } else {
+            format!("Take Profit: ${:.2}", trade.takeprofit).blue()
+        }
+    );
+    println!("{}", format!("Exit Price: ${:.2}", trade.exit_price.unwrap_or(0.0)).blue());
+    println!("{}", format!("Liquidation Price: ${:.2}", trade.liquidation).blue());
+    println!("{}", format!("Opening Fee: {} sats (~${:.2})", trade.opening_fee, opening_fee_usd).blue());
+    println!("{}", format!("Closing Fee: {} sats (~${:.2})", trade.closing_fee, closing_fee_usd).blue());
+    println!("{}", format!("Maintenance Margin: {} sats (~${:.2})", trade.maintenance_margin, maintenance_margin_usd).blue());
+    println!("{}", format!("P&L: {} sats (~${:.2})", trade.pl, pl_usd).blue());
+    println!("{}", format!("Sum Carry Fees: {} sats (~${:.2})", trade.sum_carry_fees, sum_carry_fees_usd).blue());
+    println!("{}", format!("Entry Margin: {:.0} sats", trade.entry_margin.unwrap_or(0.0)).blue());
+    println!("{}", format!("Creation: {}", formatted_creation_ts).blue());
+    println!("{}", format!("Last Update: {}", formatted_last_update_ts).blue());
+    println!("{}", format!("Closed: {}", formatted_closed_ts).blue());
+    if trade.open {
+        println!("{}", format!("Open").blue());
+    }
+    
+    if trade.running {
+        println!("{}", format!("Running").green());
+    }
+    
+    if trade.canceled {
+        println!("{}", format!("Canceled").red());
+    }
+    
+    if trade.closed {
+        println!("{}", format!("Closed").red());
     }
 }

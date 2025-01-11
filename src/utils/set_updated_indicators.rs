@@ -1,8 +1,10 @@
-// src/utils/update_bot_indicators.rs
+// src/utils/set_updated_indicators.rs
 
-use crate::{futures::get_ohlcs_history::OhlcHistoryEntry, math::init_bot_params::BotParams};
+// TO DO: implmennt logic for price and index derived params as well (ref to get_indicators -> update_price_indicators)
 
-pub fn update_indicators(
+use crate::{futures::get_ohlcs_history::OhlcHistoryEntry, utils::init_bot_params::BotParams};
+
+pub fn set_updated_indicators(
     bot_params: &mut BotParams,
     ohlc_data: Vec<OhlcHistoryEntry>,
     ma: Option<f64>,
